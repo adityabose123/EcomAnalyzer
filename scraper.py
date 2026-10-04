@@ -156,57 +156,65 @@ def detail(page, domain, card, headful):
     return d
 
 
+def run_scrape(o, log=print, on_data=lambda d: None, stop=lambda: False):
+    """o: dict(domain, pages, tolerance, max_competitors, categories, headful). Calls on_data(data) after each group."""
+    out = {"generated_at": None, "marketplace": o["domain"], "scrape_tolerance_pct": o["tolerance"], "demo": False, "groups": []}
+    with sync_playwright() as pw:
+        ctx = pw.chromium.launch_persistent_context(
+            ".browser-profile", headless=not o["headful"], locale="en-IN", viewport={"width": 1366, "height": 900})
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        garnier = {}
+        queries = ["garnier"] + [f"garnier {P.category_query(c[0])}" for c in P.CATEGORIES
+                                 if not o["categories"] or c[0] in o["categories"]]
+        for n, q in enumerate(queries, 1):
+            if stop(): break
+            log(f"Discovering Garnier products ({n}/{len(queries)}): {q}")
+            for c in search(page, o["domain"], q, o["pages"] if q == "garnier" else 1, o["headful"]):
+                if P.is_garnier(c["title"]) and c["unit_price"]:
+                    c["category"] = P.infer_category(c["title"])
+                    if c["category"] and (not o["categories"] or c["category"] in o["categories"]):
+                        garnier[c["asin"]] = c
+        log(f"{len(garnier)} Garnier products with a parseable size")
+        pools = {}
+        for k, g in enumerate(sorted(garnier.values(), key=lambda x: (x["category"], x["unit_price"])), 1):
+            if stop(): break
+            cat = g["category"]
+            if cat not in pools:
+                log(f"Searching category: {cat}")
+                pools[cat] = search(page, o["domain"], P.category_query(cat), o["pages"], o["headful"])
+            comps = P.select_competitors(g, pools[cat], o["tolerance"])[: o["max_competitors"]]
+            log(f"[{k}/{len(garnier)}] {g['title'][:55]} ₹{g['unit_price']}/{g['unit']} → {len(comps)} competitors; fetching pages")
+            try:
+                gd = detail(page, o["domain"], g, o["headful"])
+                cd = []
+                for c in comps:
+                    d = detail(page, o["domain"], c, o["headful"])
+                    d["unit_price"], d["unit"] = c["unit_price"], c["unit"]
+                    cd.append(d)
+            except Exception as e:  # one bad page shouldn't kill the run
+                log(f"  skipped: {str(e)[:120]}"); continue
+            gd["category"] = cat
+            out["groups"].append({"category": cat, "garnier": gd, "competitors": cd})
+            out["generated_at"] = datetime.now().isoformat(timespec="seconds")
+            on_data(out)
+        ctx.close()
+    out["generated_at"] = datetime.now().isoformat(timespec="seconds")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--domain", default="amazon.in")
-    ap.add_argument("--pages", type=int, default=3, help="search result pages per query")
-    ap.add_argument("--tolerance", type=float, default=40, help="max |price/unit diff| %% to scrape (dashboard can narrow it)")
-    ap.add_argument("--max-competitors", type=int, default=8, help="per Garnier product")
-    ap.add_argument("--categories", nargs="*", help="limit to these categories, e.g. 'face wash' moisturizer")
+    ap.add_argument("--pages", type=int, default=3)
+    ap.add_argument("--tolerance", type=float, default=40)
+    ap.add_argument("--max-competitors", type=int, default=8)
+    ap.add_argument("--categories", nargs="*")
     ap.add_argument("--headful", action="store_true")
     ap.add_argument("--out", default="data.json")
     a = ap.parse_args()
-
-    with sync_playwright() as pw:
-        ctx = pw.chromium.launch_persistent_context(
-            ".browser-profile", headless=not a.headful, locale="en-IN", viewport={"width": 1366, "height": 900})
-        page = ctx.pages[0] if ctx.pages else ctx.new_page()
-
-        # 1. discover every Garnier product (brand search + one query per category)
-        garnier = {}
-        for q in ["garnier"] + [f"garnier {P.category_query(c[0])}" for c in P.CATEGORIES]:
-            for c in search(page, a.domain, q, a.pages if q == "garnier" else 1, a.headful):
-                if P.is_garnier(c["title"]) and c["unit_price"]:
-                    c["category"] = P.infer_category(c["title"])
-                    if c["category"] and (not a.categories or c["category"] in a.categories):
-                        garnier[c["asin"]] = c
-        print(f"{len(garnier)} Garnier products with a parseable size")
-
-        # 2. per category: search the category, filter competitors
-        pools = {}
-        groups = []
-        for g in sorted(garnier.values(), key=lambda x: (x["category"], x["unit_price"])):
-            cat = g["category"]
-            if cat not in pools:
-                pools[cat] = search(page, a.domain, P.category_query(cat), a.pages, a.headful)
-            comps = P.select_competitors(g, pools[cat], a.tolerance)[: a.max_competitors]
-            print(f"[{cat}] {g['title'][:60]} ₹{g['unit_price']}/{g['unit']} ratings={g['ratings_count']} -> {len(comps)} competitors")
-            try:
-                gd = detail(page, a.domain, g, a.headful)
-                cd = []
-                for c in comps:
-                    d = detail(page, a.domain, c, a.headful)
-                    d["unit_price"], d["unit"] = c["unit_price"], c["unit"]
-                    cd.append(d)
-            except Exception as e:  # keep going; one bad page shouldn't kill the run
-                print("  skipped:", e); continue
-            gd["category"] = cat
-            groups.append({"category": cat, "garnier": gd, "competitors": cd})
-        ctx.close()
-
-    Path(a.out).write_text(json.dumps({
-        "generated_at": datetime.now().isoformat(timespec="seconds"), "marketplace": a.domain,
-        "scrape_tolerance_pct": a.tolerance, "demo": False, "groups": groups}, ensure_ascii=False, indent=1))
+    data = run_scrape(dict(domain=a.domain, pages=a.pages, tolerance=a.tolerance, max_competitors=a.max_competitors,
+                           categories=a.categories, headful=a.headful))
+    Path(a.out).write_text(json.dumps(data, ensure_ascii=False, indent=1))
     print("wrote", a.out)
 
 

@@ -44,10 +44,11 @@ button.dl{border:1px solid var(--line);background:var(--card);color:var(--ink);b
 <body>
 <header><h1>Garnier Competitor Dashboard</h1><small id="meta"></small></header>
 <div id="demo" class="demo" hidden>DEMO DATA — synthetic placeholders to preview the layout. Run scraper.py for real Amazon data.</div>
+<div id="run" class="card" hidden style="margin:16px 20px 0"></div>
 <div class="layout"><aside id="side"></aside><main id="main"></main></div>
 <div id="lb"><img alt=""></div>
 <script>
-const DATA = /*__DATA__*/null;
+let DATA = /*__DATA__*/null, LIVE = false, flat = [], sig = "";
 const $ = s => document.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const inr = n => n == null ? '—' : '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
@@ -56,13 +57,45 @@ const words = s => (String(s || '').match(/\S+/g) || []).length;
 const state = {gi: 0, tol: 20, tab: 'summary'};
 const CLAIMS = ['vitamin c','hyaluronic','niacinamide','salicylic','glycolic','retinol','ceramide','kojic','aloe','charcoal','tea tree','spf','sls free','paraben free','sulphate free','fragrance free','ammonia free','dermatologist','clinically','24 hr','48 hr','oil free','non comedogenic','cruelty free','vegan'];
 const claimsOf = p => { const t = (p.above_fold.title + ' ' + (p.above_fold.bullets || []).join(' ')).toLowerCase(); return CLAIMS.filter(c => t.includes(c)); };
-const flat = DATA.groups;
 
-function init() {
-  $('#meta').textContent = `${DATA.marketplace} · generated ${DATA.generated_at} · ${flat.length} Garnier products`;
-  $('#demo').hidden = !DATA.demo;
-  if (!flat.length) { $('#main').innerHTML = '<div class="card">No data. Run scraper.py first.</div>'; return; }
+async function init() {
+  try { const r = await fetch('/api/state'); if (r.ok) { LIVE = true; applyState(await r.json(), true); setInterval(poll, 2500); return; } } catch (e) {}
+  load(DATA);
+}
+async function poll() { try { applyState(await (await fetch('/api/state')).json(), false); } catch (e) {} }
+function load(d) {
+  DATA = d; flat = d ? d.groups : [];
+  $('#meta').textContent = d ? `${DATA.marketplace} · generated ${DATA.generated_at || '—'} · ${flat.length} Garnier products` : '';
+  $('#demo').hidden = !(d && d.demo);
+  if (state.gi >= flat.length) state.gi = 0;
+  if (!flat.length) { $('#main').innerHTML = '<div class="card">No data yet. ' + (LIVE ? 'Click “Run analysis” above.' : 'Run scraper.py or app.py first.') + '</div>'; $('#side').innerHTML = ''; return; }
   render();
+}
+function applyState(st, first) {
+  const box = $('#run');
+  if (first) {
+    box.hidden = false;
+    box.innerHTML = `<h3 style="margin:0 0 10px">Run analysis</h3>
+    <div class="ctl" style="margin:0">
+      <label>Amazon domain <input id="r_dom" value="amazon.in" size="10"></label>
+      <label>Search pages <input id="r_pages" type="number" min="1" max="8" value="3" style="width:56px"></label>
+      <label>Scrape ±% <input id="r_tol" type="number" min="5" max="100" value="40" style="width:56px"></label>
+      <label>Max competitors / product <input id="r_max" type="number" min="1" max="20" value="8" style="width:56px"></label>
+      <label><input id="r_head" type="checkbox" checked> Show browser (needed to solve CAPTCHAs)</label>
+    </div>
+    <div class="ctl">Categories (none ticked = all): ${st.categories.map(c => `<label><input type="checkbox" class="r_cat" value="${esc(c)}"> ${esc(c)}</label>`).join(' ')}</div>
+    <div class="ctl"><button class="tab on" id="r_go">Run analysis</button><button class="tab" id="r_stop">Stop</button><span id="r_state" class="muted"></span></div>
+    <pre id="r_log" class="clip muted" style="max-height:140px;margin:8px 0 0"></pre>`;
+    $('#r_go').onclick = () => fetch('/api/run', {method: 'POST', body: JSON.stringify({
+      domain: $('#r_dom').value, pages: $('#r_pages').value, tolerance: $('#r_tol').value, max_competitors: $('#r_max').value,
+      headful: $('#r_head').checked, categories: [...document.querySelectorAll('.r_cat:checked')].map(i => i.value)})}).then(poll);
+    $('#r_stop').onclick = () => fetch('/api/stop', {method: 'POST', body: '{}'});
+  }
+  $('#r_state').textContent = st.running ? 'Running… results appear below as each product finishes.' : 'Idle';
+  $('#r_go').disabled = st.running;
+  const lg = $('#r_log'); lg.textContent = st.log.join('\n'); lg.scrollTop = lg.scrollHeight;
+  const nsig = st.data ? st.data.groups.length + '|' + st.data.generated_at : '';
+  if (first || nsig !== sig) { sig = nsig; load(st.data); }
 }
 function side() {
   const cats = [...new Set(flat.map(g => g.category))];

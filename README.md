@@ -12,3 +12,9 @@ Logic: every Garnier listing → category → price per ml/g → competitors in 
 of that price/unit **and** with more ratings than the Garnier product → above-the-fold (gallery, title, bullets,
 badges, overview) and below-the-fold (A+ images/text, description, specs, reviews) are scraped and compared.
 Tolerance can be narrowed live in the dashboard.
+
+## Web app (no manual steps after launch)
+```bash
+pip install -r requirements.txt && playwright install chromium
+python app.py        # opens http://localhost:8000 — set options, click "Run analysis", results stream into the dashboard
+```
