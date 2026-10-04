@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Garnier Competitor Dashboard</title>
+<style>
+:root{--bg:#f6f7f9;--card:#fff;--ink:#1c2430;--mute:#667085;--line:#e4e7ec;--g:#1b8a3c;--gbg:#e8f5ec;--c:#2457d6;--warn:#b54708;--warnbg:#fef0c7}
+@media (prefers-color-scheme:dark){:root{--bg:#12161c;--card:#1b212a;--ink:#e8ecf2;--mute:#9aa4b2;--line:#2c3440;--g:#4cc26b;--gbg:#173323;--c:#7aa2ff;--warn:#f5b45c;--warnbg:#3a2c12}}
+*{box-sizing:border-box}body{margin:0;font:14px/1.45 system-ui,sans-serif;background:var(--bg);color:var(--ink)}
+header{padding:14px 20px;border-bottom:1px solid var(--line);background:var(--card);display:flex;gap:16px;align-items:baseline;flex-wrap:wrap}
+header h1{font-size:18px;margin:0}header small{color:var(--mute)}
+.demo{background:var(--warnbg);color:var(--warn);padding:8px 20px;font-weight:600}
+.layout{display:grid;grid-template-columns:300px 1fr;min-height:calc(100vh - 60px)}
+aside{border-right:1px solid var(--line);background:var(--card);padding:12px;overflow:auto;max-height:calc(100vh - 60px);position:sticky;top:0}
+aside h3{margin:14px 6px 6px;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.gi{display:block;width:100%;text-align:left;border:1px solid transparent;background:none;color:inherit;padding:8px;border-radius:8px;cursor:pointer;font:inherit}
+.gi:hover{background:var(--bg)}.gi.on{background:var(--gbg);border-color:var(--g)}
+.gi b{display:block;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.gi span{color:var(--mute);font-size:12px}
+main{padding:20px;min-width:0}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:16px}
+.top{display:flex;gap:16px;align-items:center;flex-wrap:wrap}.top img{width:84px;height:84px;object-fit:contain;border-radius:8px;background:#fff}
+.kpis{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}.kpi{background:var(--bg);border-radius:8px;padding:6px 12px}.kpi small{display:block;color:var(--mute);font-size:11px}.kpi b{font-size:16px}
+.ctl{display:flex;gap:18px;flex-wrap:wrap;align-items:center;margin-top:12px;color:var(--mute)}
+.tabs{display:flex;gap:6px;margin:0 0 14px}.tab{padding:8px 14px;border:1px solid var(--line);border-radius:999px;background:var(--card);color:var(--ink);cursor:pointer;font:inherit}.tab.on{background:var(--c);color:#fff;border-color:var(--c)}
+table{border-collapse:collapse;width:100%}th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}th{color:var(--mute);font-weight:500;font-size:12px}
+tr.g td{background:var(--gbg)}.num{text-align:right;font-variant-numeric:tabular-nums}
+.bar{height:14px;border-radius:4px;background:var(--c);min-width:2px}.bar.g{background:var(--g)}
+.brow{display:grid;grid-template-columns:260px 1fr 90px;gap:10px;align-items:center;margin:6px 0}.brow span:first-child{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ins li{margin:5px 0}.tag{display:inline-block;padding:1px 8px;border-radius:999px;font-size:12px;margin:2px 4px 2px 0;background:var(--bg);border:1px solid var(--line)}
+.tag.more{background:var(--gbg);border-color:var(--g)}.tag.miss{background:var(--warnbg);border-color:var(--warn)}
+.cols{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(300px,1fr);gap:14px;overflow-x:auto;padding-bottom:8px}
+.col{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:12px;min-width:0}.col.g{border-color:var(--g);box-shadow:0 0 0 1px var(--g)}
+.col h4{margin:0 0 8px;font-size:13px}.col h5{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
+.gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.gal img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:zoom-in}
+.gal.wide{grid-template-columns:1fr}.gal.wide img{aspect-ratio:auto}
+.ttl{font-size:15px;font-weight:600}.muted{color:var(--mute)}.clip{max-height:260px;overflow:auto;white-space:pre-wrap}
+ul.b{margin:0;padding-left:18px}.diff td:first-child{width:36%}.empty{color:var(--mute);font-style:italic}
+#lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}#lb img{max-width:92vw;max-height:92vh;background:#fff}
+button.dl{border:1px solid var(--line);background:var(--card);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+@media(max-width:800px){.layout{grid-template-columns:1fr}aside{position:static;max-height:240px}.brow{grid-template-columns:120px 1fr 70px}}
+</style>
+</head>
+<body>
+<header><h1>Garnier Competitor Dashboard</h1><small id="meta"></small></header>
+<div id="demo" class="demo" hidden>DEMO DATA — synthetic placeholders to preview the layout. Run scraper.py for real Amazon data.</div>
+<div class="layout"><aside id="side"></aside><main id="main"></main></div>
+<div id="lb"><img alt=""></div>
+<script>
+const DATA = /*__DATA__*/null;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const inr = n => n == null ? '—' : '₹' + Number(n).toLocaleString('en-IN', {maximumFractionDigits: 2});
+const up = p => p.unit_price == null ? '—' : '₹' + p.unit_price.toFixed(2) + '/' + p.unit;
+const words = s => (String(s || '').match(/\S+/g) || []).length;
+const state = {gi: 0, tol: 20, tab: 'summary'};
+const CLAIMS = ['vitamin c','hyaluronic','niacinamide','salicylic','glycolic','retinol','ceramide','kojic','aloe','charcoal','tea tree','spf','sls free','paraben free','sulphate free','fragrance free','ammonia free','dermatologist','clinically','24 hr','48 hr','oil free','non comedogenic','cruelty free','vegan'];
+const claimsOf = p => { const t = (p.above_fold.title + ' ' + (p.above_fold.bullets || []).join(' ')).toLowerCase(); return CLAIMS.filter(c => t.includes(c)); };
+const flat = DATA.groups;
+
+function init() {
+  $('#meta').textContent = `${DATA.marketplace} · generated ${DATA.generated_at} · ${flat.length} Garnier products`;
+  $('#demo').hidden = !DATA.demo;
+  if (!flat.length) { $('#main').innerHTML = '<div class="card">No data. Run scraper.py first.</div>'; return; }
+  render();
+}
+function side() {
+  const cats = [...new Set(flat.map(g => g.category))];
+  $('#side').innerHTML = cats.map(c => `<h3>${esc(c)}</h3>` + flat.map((g, i) => g.category !== c ? '' :
+    `<button class="gi ${i === state.gi ? 'on' : ''}" data-i="${i}"><b>${esc(g.garnier.title)}</b><span>${inr(g.garnier.price)} · ${up(g.garnier)} · ${(g.garnier.ratings_count || 0).toLocaleString()} ratings · ${g.competitors.length} comp.</span></button>`).join('')).join('');
+  document.querySelectorAll('.gi').forEach(b => b.onclick = () => { state.gi = +b.dataset.i; render(); });
+}
+function comps(grp) {
+  const g = grp.garnier;
+  // brief rule: similar price/unit AND more ratings than the Garnier product
+  return grp.competitors.filter(c => c.unit === g.unit && Math.abs(c.unit_price - g.unit_price) / g.unit_price * 100 <= state.tol && (c.ratings_count || 0) > (g.ratings_count || 0))
+    .sort((a, b) => b.ratings_count - a.ratings_count);
+}
+function render() {
+  side();
+  const grp = flat[state.gi], g = grp.garnier, cs = comps(grp);
+  const gi0 = (g.above_fold.images || [])[0] || g.image;
+  $('#main').innerHTML = `
+  <div class="card"><div class="top"><img src="${esc(gi0)}" alt="">
+    <div><div class="muted">${esc(grp.category)} · <a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.asin)}</a></div><div class="ttl">${esc(g.title)}</div>
+    <div class="kpis"><div class="kpi"><small>Price</small><b>${inr(g.price)}</b></div><div class="kpi"><small>Size</small><b>${g.size_qty} ${g.unit}</b></div>
+    <div class="kpi"><small>Price per ${g.unit}</small><b>${up(g)}</b></div><div class="kpi"><small>Rating</small><b>${g.rating ?? '—'}★</b></div>
+    <div class="kpi"><small>Ratings</small><b>${(g.ratings_count || 0).toLocaleString()}</b></div></div></div></div>
+    <div class="ctl"><label>Price/${g.unit} tolerance ±<b id="tv">${state.tol}</b>% <input type="range" id="tol" min="5" max="${Math.max(40, DATA.scrape_tolerance_pct)}" value="${state.tol}"></label>
+    <span>${cs.length} competitor(s) with a similar price/${g.unit} and more ratings than Garnier</span><button class="dl" id="csv">Export CSV</button></div></div>
+  <div class="tabs">${[['summary','Summary'],['above','Above the fold'],['below','Below the fold']].map(([k, l]) => `<button class="tab ${state.tab === k ? 'on' : ''}" data-t="${k}">${l}</button>`).join('')}</div>
+  <div id="body">${!cs.length ? '<div class="card empty">No competitor matches. Widen the tolerance, or none of the scraped products has more ratings than this Garnier product.</div>' : state.tab === 'summary' ? summary(g, cs) : state.tab === 'above' ? above(g, cs) : below(g, cs)}</div>`;
+  $('#tol').oninput = e => { state.tol = +e.target.value; render(); };
+  document.querySelectorAll('.tab').forEach(b => b.onclick = () => { state.tab = b.dataset.t; render(); });
+  $('#csv').onclick = () => csv(g, cs);
+  document.querySelectorAll('img[data-zoom],.gal img').forEach(i => i.onclick = () => { $('#lb img').src = i.src; $('#lb').style.display = 'flex'; });
+}
+const gal = (a, cls = '') => (a && a.length) ? `<div class="gal ${cls}">${a.map(u => `<img loading="lazy" src="${esc(u)}" alt="">`).join('')}</div>` : '<span class="empty">none</span>';
+const pct = (a, b) => b ? ((a - b) / b * 100) : 0;
+
+function summary(g, cs) {
+  const all = [g, ...cs], max = Math.max(...all.map(p => p.unit_price));
+  const row = p => `<tr class="${p === g ? 'g' : ''}"><td>${p === g ? '<b>Garnier</b> · ' : ''}<a href="${esc(p.url)}" target="_blank" rel="noopener">${esc(p.title.slice(0, 90))}</a></td><td class="num">${inr(p.price)}</td><td class="num">${p.size_qty} ${p.unit}</td><td class="num"><b>${up(p)}</b></td><td class="num">${p === g ? '—' : (pct(p.unit_price, g.unit_price) >= 0 ? '+' : '') + pct(p.unit_price, g.unit_price).toFixed(1) + '%'}</td><td class="num">${p.rating ?? '—'}</td><td class="num">${(p.ratings_count || 0).toLocaleString()}</td><td class="num">${p === g ? '—' : (p.ratings_count / Math.max(1, g.ratings_count)).toFixed(1) + '×'}</td></tr>`;
+  const ins = [];
+  const cheaper = cs.filter(c => c.unit_price < g.unit_price).length;
+  ins.push(`${cheaper} of ${cs.length} competitors are cheaper per ${g.unit} than Garnier; ${cs.length - cheaper} are costlier.`);
+  const avgR = cs.reduce((s, c) => s + (c.rating || 0), 0) / cs.length;
+  ins.push(`Competitor average rating is ${avgR.toFixed(2)}★ vs Garnier ${g.rating ?? '—'}★; the top competitor has ${(cs[0].ratings_count / Math.max(1, g.ratings_count)).toFixed(1)}× Garnier's ratings.`);
+  const gc = new Set(claimsOf(g)), cc = {}; cs.forEach(c => claimsOf(c).forEach(x => { if (!gc.has(x)) cc[x] = (cc[x] || 0) + 1; }));
+  const top = Object.entries(cc).sort((a, b) => b[1] - a[1]).slice(0, 6);
+  if (top.length) ins.push('Claims competitors lead with that Garnier does not: ' + top.map(([k, n]) => `<span class="tag miss">${esc(k)} (${n}/${cs.length})</span>`).join(''));
+  return `<div class="card"><h3 style="margin-top:0">Price per ${g.unit}</h3>${all.map(p => `<div class="brow"><span title="${esc(p.title)}">${p === g ? '<b>Garnier</b>' : esc(p.title.slice(0, 40))}</span><div><div class="bar ${p === g ? 'g' : ''}" style="width:${p.unit_price / max * 100}%"></div></div><b class="num">${up(p)}</b></div>`).join('')}</div>
+  <div class="card"><h3 style="margin-top:0">Comparison</h3><div style="overflow:auto"><table><tr><th>Product</th><th class="num">Price</th><th class="num">Size</th><th class="num">Price/unit</th><th class="num">vs Garnier</th><th class="num">Rating</th><th class="num">Ratings</th><th class="num">× Garnier</th></tr>${all.map(row).join('')}</table></div></div>
+  <div class="card"><h3 style="margin-top:0">Auto insights</h3><ul class="ins">${ins.map(i => `<li>${i}</li>`).join('')}</ul></div>`;
+}
+
+function diffTable(rows, all) {
+  return `<div class="card" style="overflow:auto"><table class="diff"><tr><th>Metric</th>${all.map((p, i) => `<th>${i ? esc(p.above_fold.brand || p.asin).slice(0, 28) : 'Garnier'}</th>`).join('')}</tr>${rows.map(([k, f]) => `<tr><td>${k}</td>${all.map(p => `<td>${f(p)}</td>`).join('')}</tr>`).join('')}</table></div>`;
+}
+function above(g, cs) {
+  const all = [g, ...cs], gcl = new Set(claimsOf(g));
+  const rows = [
+    ['Images in gallery', p => p.above_fold.images.length], ['Videos', p => p.above_fold.video_count || 0],
+    ['Title length (words)', p => words(p.above_fold.title)], ['Bullet points', p => (p.above_fold.bullets || []).length],
+    ['Bullet words', p => words((p.above_fold.bullets || []).join(' '))], ['Discount', p => esc(p.above_fold.discount || '—')],
+    ['Badges', p => esc((p.above_fold.badges || []).join(', ') || '—')], ['Rating / ratings', p => `${p.rating ?? '—'}★ / ${(p.ratings_count || 0).toLocaleString()}`],
+    ['Claims in title + bullets', p => claimsOf(p).map(c => `<span class="tag ${p === g ? '' : gcl.has(c) ? '' : 'more'}">${esc(c)}</span>`).join('') || '—'],
+  ];
+  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>
+    <h5>Images (${p.above_fold.images.length})</h5>${gal(p.above_fold.images)}
+    <h5>Title</h5><div class="ttl">${esc(p.above_fold.title)}</div>
+    <h5>Brief description (bullets)</h5>${(p.above_fold.bullets || []).length ? `<ul class="b">${p.above_fold.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : '<span class="empty">none</span>'}
+    <h5>Overview</h5>${Object.entries(p.above_fold.overview || {}).map(([k, v]) => `<div><span class="muted">${esc(k)}:</span> ${esc(v)}</div>`).join('') || '<span class="empty">none</span>'}</div>`).join('');
+  return diffTable(rows, all) + `<div class="cols">${cols}</div>`;
+}
+function below(g, cs) {
+  const all = [g, ...cs], B = p => p.below_fold;
+  const rows = [
+    ['A+ / brand images', p => (B(p).aplus_images || []).length], ['Brand-story images', p => (B(p).brand_story_images || []).length],
+    ['A+ text (words)', p => words(B(p).aplus_text)], ['Description (words)', p => words(B(p).description)],
+    ['Spec rows', p => Object.keys(B(p).spec_table || {}).length], ['Comparison table', p => (B(p).comparison_table || []).length ? 'yes' : 'no'],
+    ['Review images', p => (B(p).review_images || []).length], ['"Customers say" summary', p => B(p).customers_say ? 'yes' : 'no'],
+    ['5★ share', p => (B(p).rating_histogram || {})['5'] != null ? B(p).rating_histogram['5'] + '%' : '—'],
+  ];
+  const specKeys = [...new Set(all.flatMap(p => Object.keys(B(p).spec_table || {})))];
+  const specs = specKeys.length ? `<div class="card" style="overflow:auto"><h3 style="margin-top:0">Product information (all keys)</h3><table><tr><th>Field</th>${all.map((p, i) => `<th>${i ? esc(p.above_fold.brand || p.asin) : 'Garnier'}</th>`).join('')}</tr>${specKeys.map(k => `<tr><td class="muted">${esc(k)}</td>${all.map(p => `<td>${esc((B(p).spec_table || {})[k] ?? '—')}</td>`).join('')}</tr>`).join('')}</table></div>` : '';
+  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>
+    <h5>A+ / brand content images (${(B(p).aplus_images || []).length})</h5>${gal(B(p).aplus_images, 'wide')}
+    ${(B(p).brand_story_images || []).length ? `<h5>Brand story images</h5>${gal(B(p).brand_story_images, 'wide')}` : ''}
+    <h5>A+ text</h5><div class="clip">${esc(B(p).aplus_text) || '<span class="empty">none</span>'}</div>
+    <h5>Description</h5><div class="clip">${esc(B(p).description) || '<span class="empty">none</span>'}</div>
+    <h5>Customers say</h5><div>${esc(B(p).customers_say) || '<span class="empty">none</span>'}</div>
+    <h5>Review images (${(B(p).review_images || []).length})</h5>${gal(B(p).review_images)}
+    <h5>Top reviews</h5>${(B(p).reviews || []).slice(0, 3).map(r => `<div style="margin-bottom:8px"><b>${esc(r.title)}</b><div class="muted">${esc(r.body.slice(0, 220))}</div></div>`).join('') || '<span class="empty">none</span>'}</div>`).join('');
+  return diffTable(rows, all) + specs + `<div class="cols">${cols}</div>`;
+}
+function csv(g, cs) {
+  const h = ['role', 'asin', 'title', 'price', 'size', 'unit', 'price_per_unit', 'rating', 'ratings_count', 'url'];
+  const r = (role, p) => [role, p.asin, p.title, p.price, p.size_qty, p.unit, p.unit_price, p.rating, p.ratings_count, p.url].map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(',');
+  const blob = new Blob([[h.join(','), r('garnier', g), ...cs.map(c => r('competitor', c))].join('\n')], {type: 'text/csv'});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `garnier_${g.asin}_competitors.csv`; a.click();
+}
+$('#lb').onclick = () => $('#lb').style.display = 'none';
+init();
+</script>
+</body>
+</html>
