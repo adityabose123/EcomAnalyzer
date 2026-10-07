@@ -106,14 +106,14 @@ def is_garnier(title):
 
 
 def select_competitors(garnier, candidates, tolerance_pct):
-    """Brief rules: non-Garnier, same unit, price/unit within +-tolerance,
-    and strictly more ratings than the Garnier product. Sorted by ratings desc."""
+    """Brief rules: non-Garnier, price/unit within +-tolerance, and strictly more ratings than the
+    Garnier product. Sorted by ratings desc. Creams/gels are sold in both g and ml, so 1 g is treated as 1 ml."""
     gp, gr = garnier.get("unit_price"), garnier.get("ratings_count") or 0
     if not gp:
         return []
     out = []
     for c in candidates:
-        if is_garnier(c.get("title")) or c.get("unit") != garnier.get("unit"):
+        if is_garnier(c.get("title")):
             continue
         cp = c.get("unit_price")
         if not cp or abs(cp - gp) / gp * 100 > tolerance_pct:

@@ -18,3 +18,10 @@ Tolerance can be narrowed live in the dashboard.
 pip install -r requirements.txt && playwright install chromium
 python app.py        # opens http://localhost:8000 — set options, click "Run analysis", results stream into the dashboard
 ```
+
+## Which Garnier products are analysed
+The five products in `garnier_products.py`, named from the pack shots in `garnier_images/`. Each is looked up on
+Amazon by name; its competitors come from its category (3 creams → moisturizer, serum cleanser → face wash,
+Super UV → sunscreen). 1 g is treated as 1 ml when comparing price per unit. The dashboard shows no scraped
+images: every image slot is an emoji tile that opens the product page, and Garnier shows the supplied pack shot.
+To add a product, add a row to `PRODUCTS` and drop its image into `garnier_images/`.

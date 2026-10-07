@@ -22,4 +22,10 @@ def test_spec_example():
     g = {"unit": "ml", "unit_price": 6.0, "ratings_count": 1000, "title": "Garnier X 50ml"}  # Rs300/50ml
     mk = lambda t, up, n, u="ml": {"title": t, "unit": u, "unit_price": up, "ratings_count": n}
     cands = [mk("A", 6.5, 5000), mk("B", 6.5, 500), mk("C", 12, 9000), mk("Garnier Y", 6, 9000), mk("D", 6, 9000, "g")]
-    assert [c["title"] for c in P.select_competitors(g, cands, 20)] == ["A"]
+    assert [c["title"] for c in P.select_competitors(g, cands, 20)] == ["D", "A"]  # g counts as ml
+
+def test_garnier_products():
+    import garnier_products as G
+    assert len(G.PRODUCTS) == 5 and all((G.IMG_DIR / G.as_dict(p)["image"]).exists() for p in G.PRODUCTS)
+    assert G.matches("Garnier Super UV Cooling Watergel Sunscreen SPF 50+, 30 g", ["super uv", "watergel"])
+    assert not G.matches("Lakme Super UV Watergel", ["super uv", "watergel"])

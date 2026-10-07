@@ -34,6 +34,9 @@ tr.g td{background:var(--gbg)}.num{text-align:right;font-variant-numeric:tabular
 .col h4{margin:0 0 8px;font-size:13px}.col h5{margin:14px 0 6px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--mute)}
 .gal{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.gal img{width:100%;aspect-ratio:1;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px;cursor:zoom-in}
 .gal.wide{grid-template-columns:1fr}.gal.wide img{aspect-ratio:auto}
+.tile{aspect-ratio:1;border-radius:6px;border:1px solid var(--line);display:flex;flex-direction:column;align-items:center;justify-content:center;text-decoration:none;color:var(--ink);background:var(--bg);font-size:11px;gap:2px;min-width:0}
+.tile i{font-style:normal;font-size:28px;line-height:1}.tile:hover{border-color:var(--c)}.gal.wide .tile{aspect-ratio:3/1}
+a.open{display:inline-block;margin:4px 0 0;font-size:12px;font-weight:600;color:var(--c)}
 .ttl{font-size:15px;font-weight:600}.muted{color:var(--mute)}.clip{max-height:260px;overflow:auto;white-space:pre-wrap}
 ul.b{margin:0;padding-left:18px}.diff td:first-child{width:36%}.empty{color:var(--mute);font-style:italic}
 #lb{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;z-index:9;cursor:zoom-out}#lb img{max-width:92vw;max-height:92vh;background:#fff}
@@ -43,7 +46,7 @@ button.dl{border:1px solid var(--line);background:var(--card);color:var(--ink);b
 </head>
 <body>
 <header><h1>Garnier Competitor Dashboard</h1><small id="meta"></small></header>
-<div id="demo" class="demo" hidden>DEMO DATA — synthetic placeholders to preview the layout. Run scraper.py for real Amazon data.</div>
+<div id="demo" class="demo" hidden>DEMO DATA — synthetic numbers to preview the layout. Click “Run analysis” (python app.py) for real Amazon data.</div>
 <div id="run" class="card" hidden style="margin:16px 20px 0"></div>
 <div class="layout"><aside id="side"></aside><main id="main"></main></div>
 <div id="lb"><img alt=""></div>
@@ -83,12 +86,12 @@ function applyState(st, first) {
       <label>Max competitors / product <input id="r_max" type="number" min="1" max="20" value="8" style="width:56px"></label>
       <label><input id="r_head" type="checkbox" checked> Show browser (needed to solve CAPTCHAs)</label>
     </div>
-    <div class="ctl">Categories (none ticked = all): ${st.categories.map(c => `<label><input type="checkbox" class="r_cat" value="${esc(c)}"> ${esc(c)}</label>`).join(' ')}</div>
+    <div class="ctl">Garnier products (none ticked = all): ${st.products.map(p => `<label><input type="checkbox" class="r_cat" value="${esc(p.key)}"> ${esc(p.name)}</label>`).join(' ')}</div>
     <div class="ctl"><button class="tab on" id="r_go">Run analysis</button><button class="tab" id="r_stop">Stop</button><span id="r_state" class="muted"></span></div>
     <pre id="r_log" class="clip muted" style="max-height:140px;margin:8px 0 0"></pre>`;
     $('#r_go').onclick = () => fetch('/api/run', {method: 'POST', body: JSON.stringify({
       domain: $('#r_dom').value, pages: $('#r_pages').value, tolerance: $('#r_tol').value, max_competitors: $('#r_max').value,
-      headful: $('#r_head').checked, categories: [...document.querySelectorAll('.r_cat:checked')].map(i => i.value)})}).then(poll);
+      headful: $('#r_head').checked, products: [...document.querySelectorAll('.r_cat:checked')].map(i => i.value)})}).then(poll);
     $('#r_stop').onclick = () => fetch('/api/stop', {method: 'POST', body: '{}'});
   }
   $('#r_state').textContent = st.running ? 'Running… results appear below as each product finishes.' : 'Idle';
@@ -100,22 +103,22 @@ function applyState(st, first) {
 function side() {
   const cats = [...new Set(flat.map(g => g.category))];
   $('#side').innerHTML = cats.map(c => `<h3>${esc(c)}</h3>` + flat.map((g, i) => g.category !== c ? '' :
-    `<button class="gi ${i === state.gi ? 'on' : ''}" data-i="${i}"><b>${esc(g.garnier.title)}</b><span>${inr(g.garnier.price)} · ${up(g.garnier)} · ${(g.garnier.ratings_count || 0).toLocaleString()} ratings · ${g.competitors.length} comp.</span></button>`).join('')).join('');
+    `<button class="gi ${i === state.gi ? 'on' : ''}" data-i="${i}"><b>${esc(g.garnier.product_name || g.garnier.title)}</b><span>${inr(g.garnier.price)} · ${up(g.garnier)} · ${(g.garnier.ratings_count || 0).toLocaleString()} ratings · ${g.competitors.length} comp.</span></button>`).join('')).join('');
   document.querySelectorAll('.gi').forEach(b => b.onclick = () => { state.gi = +b.dataset.i; render(); });
 }
 function comps(grp) {
   const g = grp.garnier;
   // brief rule: similar price/unit AND more ratings than the Garnier product
-  return grp.competitors.filter(c => c.unit === g.unit && Math.abs(c.unit_price - g.unit_price) / g.unit_price * 100 <= state.tol && (c.ratings_count || 0) > (g.ratings_count || 0))
+  return grp.competitors.filter(c => Math.abs(c.unit_price - g.unit_price) / g.unit_price * 100 <= state.tol && (c.ratings_count || 0) > (g.ratings_count || 0))
     .sort((a, b) => b.ratings_count - a.ratings_count);
 }
 function render() {
   side();
   const grp = flat[state.gi], g = grp.garnier, cs = comps(grp);
-  const gi0 = (g.above_fold.images || [])[0] || g.image;
+  const gi0 = g.pack_image || '';
   $('#main').innerHTML = `
-  <div class="card"><div class="top"><img src="${esc(gi0)}" alt="">
-    <div><div class="muted">${esc(grp.category)} · <a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.asin)}</a></div><div class="ttl">${esc(g.title)}</div>
+  <div class="card"><div class="top">${gi0 ? `<img src="${esc(gi0)}" alt="" data-zoom>` : '<div class="tile" style="width:84px">🧴</div>'}
+    <div><div class="muted">${esc(grp.category)} · <a href="${esc(g.url)}" target="_blank" rel="noopener">${esc(g.asin)}</a></div><div class="ttl">${esc(g.product_name || g.title)}</div><div class="muted">Amazon listing: ${esc(g.title)} ${openLink(g)}</div>
     <div class="kpis"><div class="kpi"><small>Price</small><b>${inr(g.price)}</b></div><div class="kpi"><small>Size</small><b>${g.size_qty} ${g.unit}</b></div>
     <div class="kpi"><small>Price per ${g.unit}</small><b>${up(g)}</b></div><div class="kpi"><small>Rating</small><b>${g.rating ?? '—'}★</b></div>
     <div class="kpi"><small>Ratings</small><b>${(g.ratings_count || 0).toLocaleString()}</b></div></div></div></div>
@@ -128,7 +131,21 @@ function render() {
   $('#csv').onclick = () => csv(g, cs);
   document.querySelectorAll('img[data-zoom],.gal img').forEach(i => i.onclick = () => { $('#lb img').src = i.src; $('#lb').style.display = 'flex'; });
 }
-const gal = (a, cls = '') => (a && a.length) ? `<div class="gal ${cls}">${a.map(u => `<img loading="lazy" src="${esc(u)}" alt="">`).join('')}</div>` : '<span class="empty">none</span>';
+const EMOJI = {moisturizer: '💧', 'face wash': '🧼', cleanser: '🧼', sunscreen: '☀️'};
+const isG = p => p === flat[state.gi].garnier;
+const nameOf = p => isG(p) ? (p.product_name || p.title) : (p.above_fold.brand || p.asin);
+const openLink = p => `<a class="open" href="${esc(p.url)}" target="_blank" rel="noopener">Open on Amazon ↗</a>`;
+// No scraped images are shown: each image slot becomes an emoji tile that opens the product page.
+// Garnier's first gallery slot shows the supplied pack shot.
+function gal(p, list, kind, cls = '') {
+  const n = (list || []).length;
+  if (!n) return '<span class="empty">none</span>';
+  const em = kind === 'aplus' ? '🖼️' : kind === 'review' ? '💬' : (EMOJI[flat[state.gi].category] || '🧴');
+  const tiles = Array.from({length: n}, (_, i) => (kind === 'gallery' && i === 0 && isG(p) && p.pack_image)
+    ? `<img src="${esc(p.pack_image)}" alt="${esc(nameOf(p))}">`
+    : `<a class="tile" href="${esc(p.url)}" target="_blank" rel="noopener" title="Open product page"><i>${em}</i>${kind === 'aplus' ? 'A+ ' : kind === 'review' ? 'Review ' : '#'}${i + 1}</a>`);
+  return `<div class="gal ${cls}">${tiles.join('')}</div>`;
+}
 const pct = (a, b) => b ? ((a - b) / b * 100) : 0;
 
 function summary(g, cs) {
@@ -159,8 +176,8 @@ function above(g, cs) {
     ['Badges', p => esc((p.above_fold.badges || []).join(', ') || '—')], ['Rating / ratings', p => `${p.rating ?? '—'}★ / ${(p.ratings_count || 0).toLocaleString()}`],
     ['Claims in title + bullets', p => claimsOf(p).map(c => `<span class="tag ${p === g ? '' : gcl.has(c) ? '' : 'more'}">${esc(c)}</span>`).join('') || '—'],
   ];
-  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>
-    <h5>Images (${p.above_fold.images.length})</h5>${gal(p.above_fold.images)}
+  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>${openLink(p)}
+    <h5>Images (${p.above_fold.images.length})</h5>${gal(p, p.above_fold.images, 'gallery')}
     <h5>Title</h5><div class="ttl">${esc(p.above_fold.title)}</div>
     <h5>Brief description (bullets)</h5>${(p.above_fold.bullets || []).length ? `<ul class="b">${p.above_fold.bullets.map(b => `<li>${esc(b)}</li>`).join('')}</ul>` : '<span class="empty">none</span>'}
     <h5>Overview</h5>${Object.entries(p.above_fold.overview || {}).map(([k, v]) => `<div><span class="muted">${esc(k)}:</span> ${esc(v)}</div>`).join('') || '<span class="empty">none</span>'}</div>`).join('');
@@ -177,13 +194,13 @@ function below(g, cs) {
   ];
   const specKeys = [...new Set(all.flatMap(p => Object.keys(B(p).spec_table || {})))];
   const specs = specKeys.length ? `<div class="card" style="overflow:auto"><h3 style="margin-top:0">Product information (all keys)</h3><table><tr><th>Field</th>${all.map((p, i) => `<th>${i ? esc(p.above_fold.brand || p.asin) : 'Garnier'}</th>`).join('')}</tr>${specKeys.map(k => `<tr><td class="muted">${esc(k)}</td>${all.map(p => `<td>${esc((B(p).spec_table || {})[k] ?? '—')}</td>`).join('')}</tr>`).join('')}</table></div>` : '';
-  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>
-    <h5>A+ / brand content images (${(B(p).aplus_images || []).length})</h5>${gal(B(p).aplus_images, 'wide')}
-    ${(B(p).brand_story_images || []).length ? `<h5>Brand story images</h5>${gal(B(p).brand_story_images, 'wide')}` : ''}
+  const cols = all.map(p => `<div class="col ${p === g ? 'g' : ''}"><h4>${p === g ? 'GARNIER' : esc(p.above_fold.brand || p.asin)}</h4>${openLink(p)}
+    <h5>A+ / brand content images (${(B(p).aplus_images || []).length})</h5>${gal(p, B(p).aplus_images, 'aplus', 'wide')}
+    ${(B(p).brand_story_images || []).length ? `<h5>Brand story images</h5>${gal(p, B(p).brand_story_images, 'aplus', 'wide')}` : ''}
     <h5>A+ text</h5><div class="clip">${esc(B(p).aplus_text) || '<span class="empty">none</span>'}</div>
     <h5>Description</h5><div class="clip">${esc(B(p).description) || '<span class="empty">none</span>'}</div>
     <h5>Customers say</h5><div>${esc(B(p).customers_say) || '<span class="empty">none</span>'}</div>
-    <h5>Review images (${(B(p).review_images || []).length})</h5>${gal(B(p).review_images)}
+    <h5>Review images (${(B(p).review_images || []).length})</h5>${gal(p, B(p).review_images, 'review')}
     <h5>Top reviews</h5>${(B(p).reviews || []).slice(0, 3).map(r => `<div style="margin-bottom:8px"><b>${esc(r.title)}</b><div class="muted">${esc(r.body.slice(0, 220))}</div></div>`).join('') || '<span class="empty">none</span>'}</div>`).join('');
   return diffTable(rows, all) + specs + `<div class="cols">${cols}</div>`;
 }

@@ -13,6 +13,7 @@ from urllib.parse import quote_plus
 
 from playwright.sync_api import sync_playwright
 
+import garnier_products as G
 import parsing as P
 
 CACHE = Path(".cache")
@@ -157,24 +158,25 @@ def detail(page, domain, card, headful):
 
 
 def run_scrape(o, log=print, on_data=lambda d: None, stop=lambda: False):
-    """o: dict(domain, pages, tolerance, max_competitors, categories, headful). Calls on_data(data) after each group."""
+    """o: dict(domain, pages, tolerance, max_competitors, products, headful). Calls on_data(data) after each product."""
     out = {"generated_at": None, "marketplace": o["domain"], "scrape_tolerance_pct": o["tolerance"], "demo": False, "groups": []}
+    targets = [G.as_dict(p) for p in G.PRODUCTS if not o.get("products") or p[0] in o["products"]]
     with sync_playwright() as pw:
         ctx = pw.chromium.launch_persistent_context(
             ".browser-profile", headless=not o["headful"], locale="en-IN", viewport={"width": 1366, "height": 900})
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
+        # 1. find each Garnier product (from the supplied pack shots) on Amazon
         garnier = {}
-        queries = ["garnier"] + [f"garnier {P.category_query(c[0])}" for c in P.CATEGORIES
-                                 if not o["categories"] or c[0] in o["categories"]]
-        for n, q in enumerate(queries, 1):
+        for n, t in enumerate(targets, 1):
             if stop(): break
-            log(f"Discovering Garnier products ({n}/{len(queries)}): {q}")
-            for c in search(page, o["domain"], q, o["pages"] if q == "garnier" else 1, o["headful"]):
-                if P.is_garnier(c["title"]) and c["unit_price"]:
-                    c["category"] = P.infer_category(c["title"])
-                    if c["category"] and (not o["categories"] or c["category"] in o["categories"]):
-                        garnier[c["asin"]] = c
-        log(f"{len(garnier)} Garnier products with a parseable size")
+            log(f"Finding Garnier product on Amazon ({n}/{len(targets)}): {t['name']}")
+            hit = next((c for c in search(page, o["domain"], t["query"], 1, o["headful"])
+                        if G.matches(c["title"], t["must"]) and c["unit_price"]), None)
+            if not hit:
+                log("  not found on Amazon (or no parseable size) — skipped"); continue
+            hit.update(category=t["category"], product_key=t["key"], product_name=t["name"], pack_image=t["image"])
+            garnier[hit["asin"]] = hit
+        log(f"{len(garnier)} of {len(targets)} Garnier products found")
         pools = {}
         for k, g in enumerate(sorted(garnier.values(), key=lambda x: (x["category"], x["unit_price"])), 1):
             if stop(): break
@@ -193,7 +195,9 @@ def run_scrape(o, log=print, on_data=lambda d: None, stop=lambda: False):
                     cd.append(d)
             except Exception as e:  # one bad page shouldn't kill the run
                 log(f"  skipped: {str(e)[:120]}"); continue
-            gd["category"] = cat
+            for f in ("category", "product_key", "product_name"):
+                gd[f] = g[f]
+            gd["pack_image"] = G.image_data_uri(g["pack_image"])
             out["groups"].append({"category": cat, "garnier": gd, "competitors": cd})
             out["generated_at"] = datetime.now().isoformat(timespec="seconds")
             on_data(out)
@@ -208,12 +212,12 @@ def main():
     ap.add_argument("--pages", type=int, default=3)
     ap.add_argument("--tolerance", type=float, default=40)
     ap.add_argument("--max-competitors", type=int, default=8)
-    ap.add_argument("--categories", nargs="*")
+    ap.add_argument("--products", nargs="*", choices=G.KEYS, help="limit to these Garnier products")
     ap.add_argument("--headful", action="store_true")
     ap.add_argument("--out", default="data.json")
     a = ap.parse_args()
     data = run_scrape(dict(domain=a.domain, pages=a.pages, tolerance=a.tolerance, max_competitors=a.max_competitors,
-                           categories=a.categories, headful=a.headful))
+                           products=a.products, headful=a.headful))
     Path(a.out).write_text(json.dumps(data, ensure_ascii=False, indent=1))
     print("wrote", a.out)
 

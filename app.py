@@ -3,7 +3,7 @@ import json, threading, webbrowser
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-import parsing as P
+import garnier_products as G
 
 ROOT = Path(__file__).parent
 DATA_FILE = ROOT / "data.json"
@@ -50,7 +50,7 @@ class H(BaseHTTPRequestHandler):
             self.send(html, "text/html")
         elif self.path == "/api/state":
             self.send(json.dumps({"running": S["running"], "log": S["log"][-40:], "data": load(),
-                                  "categories": [c[0] for c in P.CATEGORIES]}))
+                                  "products": [{"key": p[0], "name": p[1]} for p in G.PRODUCTS]}))
         else:
             self.send("not found", "text/plain", 404)
 
@@ -60,7 +60,7 @@ class H(BaseHTTPRequestHandler):
         if self.path == "/api/run" and not S["running"]:
             o = {"domain": body.get("domain") or "amazon.in", "pages": int(body.get("pages") or 3),
                  "tolerance": float(body.get("tolerance") or 40), "max_competitors": int(body.get("max_competitors") or 8),
-                 "categories": body.get("categories") or None, "headful": bool(body.get("headful", True))}
+                 "products": body.get("products") or None, "headful": bool(body.get("headful", True))}
             S.update(running=True, stop=False, log=[]); log("Starting…")
             threading.Thread(target=worker, args=(o,), daemon=True).start()
         elif self.path == "/api/stop":
